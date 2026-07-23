@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
-import { Loader2, RotateCw } from "lucide-react"
+import { Loader2, RotateCw, LayoutGrid, X } from "lucide-react"
 import {
   api,
   type AnalysisResult,
@@ -19,6 +19,70 @@ const toneColor = {
   warning: "var(--primary)",
   neutral: "var(--muted-foreground)",
 } as const
+
+// URL of the live Streamlit dashboard (OVERVIEW/app.py). Override with
+// VITE_DASHBOARD_URL in ui/.env if it runs on a different host/port.
+const DASHBOARD_URL =
+  (import.meta as { env?: Record<string, string> }).env?.VITE_DASHBOARD_URL ||
+  "http://localhost:8501"
+
+// Embeds the running Streamlit dashboard in a modal, with an
+// "open in new tab" fallback if the iframe is blocked.
+function DashboardModal({ onClose }: { onClose: () => void }) {
+  const [loaded, setLoaded] = useState(false)
+  const src = DASHBOARD_URL + (DASHBOARD_URL.includes("?") ? "&" : "?") + "embed=true"
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+      style={{ background: "rgba(26,24,21,0.6)", backdropFilter: "blur(4px)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <motion.div
+        initial={{ scale: 0.97, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.97, y: 12 }}
+        className="bg-card rounded-2xl border border-border overflow-hidden flex flex-col"
+        style={{ width: "94vw", height: "92vh", maxWidth: 1600 }}
+      >
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between flex-shrink-0">
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-0.5">Live dashboard</p>
+            <h2 className="text-2xl text-foreground leading-none" style={{ fontFamily: "'Instrument Serif', serif" }}>Impact Intelligence Overview</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={DASHBOARD_URL} target="_blank" rel="noreferrer"
+              className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors font-medium"
+            >
+              Open in new tab
+            </a>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-2 rounded-xl hover:bg-secondary transition-colors"><X size={16} /></button>
+          </div>
+        </div>
+        <div className="relative flex-1 bg-background">
+          {!loaded && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-8">
+              <Loader2 size={22} className="animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Connecting to the dashboard…</p>
+              <p className="text-xs text-muted-foreground/80 max-w-md leading-relaxed">
+                If this doesn't load, make sure the Streamlit dashboard is running
+                (<span className="font-mono">streamlit run app.py</span> in the OVERVIEW folder)
+                and reachable at <span className="font-mono">{DASHBOARD_URL}</span>.
+              </p>
+            </div>
+          )}
+          <iframe
+            title="Impact Intelligence dashboard"
+            src={src}
+            onLoad={() => setLoaded(true)}
+            className="w-full h-full border-0"
+            style={{ opacity: loaded ? 1 : 0, transition: "opacity 0.3s" }}
+          />
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
 
 function CompanyCard({ company, onClick }: { company: CompanyStatusItem; onClick: () => void }) {
   return (
@@ -77,6 +141,7 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
   const [error, setError] = useState("")
   const [selected, setSelected] = useState<CompanyStatusItem | null>(null)
   const [regenerating, setRegenerating] = useState(false)
+  const [showDashboard, setShowDashboard] = useState(false)
   const [activeSessionId, setActiveSessionId] = useState(sessionId)
   const chatRef = useRef<ChatPanelHandle>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -138,6 +203,12 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
             Who needs a look?
           </h1>
           <div className="flex items-center gap-2 flex-shrink-0 mt-3">
+            <button
+              onClick={() => setShowDashboard(true)}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors font-medium"
+            >
+              <LayoutGrid size={11} /> Overview dashboard
+            </button>
             <button
               onClick={regenerate}
               disabled={regenerating || loading}
@@ -238,6 +309,10 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
         contextLabel="Ask about the portfolio"
         onNewResult={refreshFromSession}
       />
+
+      <AnimatePresence>
+        {showDashboard && <DashboardModal onClose={() => setShowDashboard(false)} />}
+      </AnimatePresence>
     </div>
   )
 }

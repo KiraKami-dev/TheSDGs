@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "dashboard": "cd ../OVERVIEW && streamlit run app.py --server.headless true --server.enableCORS false --server.enableXsrfProtection false"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
