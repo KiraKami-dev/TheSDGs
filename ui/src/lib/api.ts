@@ -74,6 +74,30 @@ export interface AnalysisResult {
   blocks: Block[];
 }
 
+export interface LadderRung {
+  label: "Inform" | "Engage" | "Outcomes" | "Impact" | "Societal";
+  sublabel: string;
+  count: number | null;
+}
+
+export interface DimensionScore {
+  name: "What" | "Who" | "How Much" | "Contribution" | "Risk";
+  question: string;
+  score: number;
+  gap: string;
+}
+
+export interface Portrait {
+  org_name: string;
+  context_line: string;
+  ladder: LadderRung[];
+  dimensions: DimensionScore[];
+  verdict: string;
+  health: Record<string, string>;
+  voice: string;
+  voice_source: string;
+}
+
 const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8020/api";
 
 async function postJSON<T>(path: string, body: object): Promise<T> {
@@ -142,4 +166,8 @@ export const api = {
     postJSON<AgentStatus<AnalysisResult>>(`/analyze/${sessionId}/message`, { message }),
   overviewRegenerate: () =>
     postJSON<{ session_id: string } & AgentStatus<AnalysisResult>>("/overview/regenerate", {}),
+  portraitStart: (orgName: string, force = false) =>
+    postJSON<{ session_id: string } & AgentStatus<Portrait>>("/portrait/start", { org_name: orgName, force }),
+  portraitStatus: (sessionId: string) =>
+    getJSON<AgentStatus<Portrait>>(`/portrait/${sessionId}/status`),
 };

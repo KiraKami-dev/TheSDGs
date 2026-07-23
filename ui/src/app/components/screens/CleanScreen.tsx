@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react"
-import { motion } from "motion/react"
-import { AlertTriangle, Check, Loader2 } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
+import { AlertTriangle, Check, Loader2, ListChecks } from "lucide-react"
 import { api, type CleaningResult } from "../../../lib/api"
+import { ReviewScreen } from "../ReviewScreen"
 
 export function CleanScreen({ sessionId, onDone }: { sessionId: string; onDone: (overviewSessionId: string) => void }) {
   const [progress, setProgress] = useState<string[]>([])
@@ -10,6 +11,7 @@ export function CleanScreen({ sessionId, onDone }: { sessionId: string; onDone: 
   const [result, setResult] = useState<CleaningResult | null>(null)
   const [error, setError] = useState("")
   const [overviewId, setOverviewId] = useState<string | null>(null)
+  const [reviewOpen, setReviewOpen] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -98,16 +100,28 @@ export function CleanScreen({ sessionId, onDone }: { sessionId: string; onDone: 
               </div>
             )}
 
-            <button
-              onClick={() => overviewId && onDone(overviewId)}
-              disabled={!overviewId}
-              className="bg-foreground text-background px-8 py-3 rounded-xl text-sm font-medium hover:bg-foreground/90 transition-colors disabled:opacity-40"
-            >
-              {overviewId ? "See who needs a look →" : "Preparing overview…"}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => overviewId && onDone(overviewId)}
+                disabled={!overviewId}
+                className="bg-foreground text-background px-8 py-3 rounded-xl text-sm font-medium hover:bg-foreground/90 transition-colors disabled:opacity-40"
+              >
+                {overviewId ? "See who needs a look →" : "Preparing overview…"}
+              </button>
+              <button
+                onClick={() => setReviewOpen(true)}
+                className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-sm font-medium border border-border text-foreground hover:bg-card transition-colors"
+              >
+                <ListChecks size={14} /> Review & correct
+              </button>
+            </div>
           </motion.div>
         )}
       </div>
+
+      <AnimatePresence>
+        {reviewOpen && result && <ReviewScreen result={result} onClose={() => setReviewOpen(false)} />}
+      </AnimatePresence>
     </div>
   )
 }

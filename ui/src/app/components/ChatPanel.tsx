@@ -66,6 +66,20 @@ export const ChatPanel = forwardRef<ChatPanelHandle, {
   useEffect(() => { if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, [messages, open, progress])
   useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 350) }, [open])
 
+  // Restore past questions from this session so reopening the chat (or
+  // reloading the page) doesn't lose the conversation, just for the demo.
+  useEffect(() => {
+    setMessages([])
+    api.analyzeStatus(sessionId).then(s => {
+      const turns = (s.turns ?? []).filter(t => t.question !== null && t.result)
+      const restored: ChatMsg[] = turns.flatMap(t => [
+        { role: "user" as const, content: t.question! },
+        { role: "assistant" as const, content: summarize(t.result!) },
+      ])
+      if (restored.length) setMessages(restored)
+    }).catch(() => {})
+  }, [sessionId])
+
   async function send(text: string) {
     const clean = text.trim()
     if (!clean || loading) return

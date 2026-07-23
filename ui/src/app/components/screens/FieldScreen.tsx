@@ -12,6 +12,7 @@ import {
 } from "../../../lib/api"
 import { ChatPanel, type ChatPanelHandle } from "../ChatPanel"
 import { CompanyPanel } from "../CompanyPanel"
+import { PortraitScreen } from "../PortraitScreen"
 import { renderMarkdown } from "../../../lib/markdown"
 
 const toneColor = {
@@ -26,17 +27,17 @@ function CompanyCard({ company, onClick }: { company: CompanyStatusItem; onClick
       onClick={onClick}
       className="bg-card border border-border rounded-xl p-5 text-left hover:border-foreground/25 hover:bg-white transition-all"
     >
-      <div className="flex items-start gap-2.5 mb-2">
-        <span
-          className="w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0"
-          style={{ background: toneColor[company.tone] }}
-        />
-        <p className="font-medium text-foreground leading-snug">{company.name}</p>
-      </div>
+      <p className="font-medium text-foreground leading-snug mb-1.5">{company.name}</p>
       <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">{company.headline}</p>
     </button>
   )
 }
+
+const SECTIONS = [
+  { tone: "warning", title: "Needs a look" },
+  { tone: "neutral", title: "Worth noting" },
+  { tone: "positive", title: "Doing well" },
+] as const
 
 interface Board {
   roster: CompanyRosterBlock | null
@@ -76,6 +77,7 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [selected, setSelected] = useState<CompanyStatusItem | null>(null)
+  const [portraitFor, setPortraitFor] = useState<string | null>(null)
   const [regenerating, setRegenerating] = useState(false)
   const [activeSessionId, setActiveSessionId] = useState(sessionId)
   const chatRef = useRef<ChatPanelHandle>(null)
@@ -175,13 +177,26 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
             )}
 
             {board.roster && (
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">{board.roster.title}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {board.roster.companies.map(c => (
-                    <CompanyCard key={c.name} company={c} onClick={() => setSelected(c)} />
-                  ))}
-                </div>
+              <div className="space-y-7">
+                {SECTIONS.map(section => {
+                  const companies = board.roster!.companies.filter(c => c.tone === section.tone)
+                  if (!companies.length) return null
+                  return (
+                    <div key={section.tone}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: toneColor[section.tone] }} />
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                          {section.title} ({companies.length})
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {companies.map(c => (
+                          <CompanyCard key={c.name} company={c} onClick={() => setSelected(c)} />
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
 
@@ -228,8 +243,16 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
               setSelected(null)
               chatRef.current?.ask(`Tell me more about ${name}. What's the full story and what should we do?`)
             }}
+            onPortrait={name => {
+              setSelected(null)
+              setPortraitFor(name)
+            }}
           />
         )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {portraitFor && <PortraitScreen orgName={portraitFor} onClose={() => setPortraitFor(null)} />}
       </AnimatePresence>
 
       <ChatPanel

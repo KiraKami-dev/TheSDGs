@@ -1,5 +1,5 @@
 import { motion } from "motion/react"
-import { X } from "lucide-react"
+import { LayoutGrid, X } from "lucide-react"
 import type { CompanyStatusItem } from "../../lib/api"
 
 const toneColor = {
@@ -14,10 +14,11 @@ const toneLabel = {
   neutral: "Worth noting",
 } as const
 
-export function CompanyPanel({ company, onClose, onAsk }: {
+export function CompanyPanel({ company, onClose, onAsk, onPortrait }: {
   company: CompanyStatusItem
   onClose: () => void
   onAsk: (name: string) => void
+  onPortrait: (name: string) => void
 }) {
   return (
     <motion.div
@@ -64,12 +65,20 @@ export function CompanyPanel({ company, onClose, onAsk }: {
           </div>
         )}
 
-        <button
-          onClick={() => onAsk(company.name)}
-          className="w-full bg-foreground text-background py-3 rounded-xl text-sm font-medium hover:bg-foreground/90 transition-colors"
-        >
-          Ask about {company.name}
-        </button>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => onPortrait(company.name)}
+            className="w-full flex items-center justify-center gap-2 bg-foreground text-background py-3 rounded-xl text-sm font-medium hover:bg-foreground/90 transition-colors"
+          >
+            <LayoutGrid size={14} /> See full impact portrait
+          </button>
+          <button
+            onClick={() => onAsk(company.name)}
+            className="w-full py-3 rounded-xl text-sm font-medium border border-border text-foreground hover:bg-background transition-colors"
+          >
+            Ask about {company.name}
+          </button>
+        </div>
       </div>
     </motion.div>
   )

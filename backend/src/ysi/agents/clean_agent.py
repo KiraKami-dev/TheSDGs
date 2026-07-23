@@ -35,6 +35,11 @@ time_label, value, unit, raw_column, raw_value).
 5. Where a value looks like a data-entry error (e.g. a currency-formatted string in what should \
 be a plain employee count, or a number many orders of magnitude off from everything else), \
 exclude it rather than silently averaging it in, but say so explicitly rather than hiding it.
+6. Once the tables are written, run `conn.execute("CHECKPOINT")` and then `conn.close()` before \
+finishing. Other agents open their own read-only connections to this same file while you work; \
+if you leave your write connection open, or never checkpoint, they will see a stale or empty \
+database. Use `with duckdb.connect(DB_PATH) as conn:` for each distinct write step rather than \
+holding one connection open across your whole run.
 
 Do this by actually writing and running Python code: inspect, write code, check real output, \
 adjust. Do not just describe what you would do. When you're done, report your summary, the \

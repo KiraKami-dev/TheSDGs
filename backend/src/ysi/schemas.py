@@ -139,3 +139,41 @@ class AnalysisResult(BaseModel):
         "becomes an insight block, a ranking becomes a leaderboard, a trend becomes a "
         "timeseries, a headline number becomes a stat, tabular detail becomes a table.",
     )
+
+
+class LadderRung(BaseModel):
+    """One depth of reach, from the shallowest (informed) to the deepest
+    (societal change). Real orgs rarely have data at every depth; a missing
+    rung is itself the finding, not a gap to paper over."""
+
+    label: Literal["Inform", "Engage", "Outcomes", "Impact", "Societal"]
+    sublabel: str = Field(description="What this rung means for this org, or 'no data collected'")
+    count: float | None = Field(default=None, description="People at this depth, or null if not tracked")
+
+
+class DimensionScore(BaseModel):
+    """One of the five dimensions of impact, backbone shared by every impact
+    framework (IRIS+, SDG, GRI, ToC): What, Who, How Much, Contribution, Risk."""
+
+    name: Literal["What", "Who", "How Much", "Contribution", "Risk"]
+    question: str = Field(description="The plain-English question this dimension asks")
+    score: int = Field(ge=0, le=5, description="How well-evidenced this dimension is in the real data, 0-5")
+    gap: str = Field(description="One plain sentence: what's missing, or what's well covered if score is high")
+
+
+class Portrait(BaseModel):
+    """A single organisation's impact picture: how deep reach actually goes,
+    how well each dimension is evidenced, and the one-sentence verdict a
+    programme manager needs. Every number here must come from a real query;
+    where the data doesn't support a claim, say so rather than guessing."""
+
+    org_name: str
+    context_line: str = Field(description="e.g. 'WASH & hygiene · South Africa · AP1 cohort', only what's real")
+    ladder: list[LadderRung] = Field(description="Exactly 5 rungs, Inform through Societal, in that order")
+    dimensions: list[DimensionScore] = Field(description="Exactly 5, What/Who/How Much/Contribution/Risk, in order")
+    verdict: str = Field(description="1-3 quiet sentences: the shape of the funnel and what it means")
+    health: dict[str, str] = Field(
+        default_factory=dict, description="Only real, computed values, e.g. {'Runway': '4 months'}"
+    )
+    voice: str = Field(default="", description="A real free-text survey quote for this org, verbatim, if one exists")
+    voice_source: str = Field(default="", description="Which survey/wave the quote came from")

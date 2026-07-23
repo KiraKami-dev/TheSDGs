@@ -20,7 +20,6 @@ export function DropScreen({ onStarted, onLoaded }: {
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [error, setError] = useState("")
   const [snapshots, setSnapshots] = useState<SnapshotInfo[] | null>(null)
-  const [showFresh, setShowFresh] = useState(false)
 
   useEffect(() => {
     api.cleanSnapshots()
@@ -71,10 +70,32 @@ export function DropScreen({ onStarted, onLoaded }: {
           Messy accelerator survey exports. No join key. That's fine.
         </p>
 
-        {hasSnapshots && !showFresh && (
-          <div className="text-left mb-10">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Welcome back</p>
-            <div className="space-y-2 mb-4">
+        <div
+          onDragOver={e => { e.preventDefault(); setHover(true) }}
+          onDragLeave={() => setHover(false)}
+          onDrop={e => { e.preventDefault(); setHover(false); start() }}
+          onClick={start}
+          className={`border-2 border-dashed rounded-2xl p-16 cursor-pointer transition-all ${
+            hover ? "border-primary bg-primary/5" : "border-border hover:border-foreground/25 hover:bg-card"
+          } ${starting ? "pointer-events-none opacity-70" : ""}`}
+        >
+          {starting ? (
+            <>
+              <Loader2 size={28} className="mx-auto text-muted-foreground mb-3 animate-spin" />
+              <p className="text-sm text-muted-foreground">Starting the cleaning agent…</p>
+            </>
+          ) : (
+            <>
+              <Upload size={28} className="mx-auto text-muted-foreground mb-3" />
+              <p className="text-sm text-muted-foreground">Click to start cleaning</p>
+            </>
+          )}
+        </div>
+
+        {hasSnapshots && (
+          <div className="text-left mt-12">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Or jump back in</p>
+            <div className="space-y-2">
               {snapshots!.map(s => (
                 <button
                   key={s.id}
@@ -92,36 +113,6 @@ export function DropScreen({ onStarted, onLoaded }: {
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => setShowFresh(true)}
-              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
-            >
-              Or start a fresh run
-            </button>
-          </div>
-        )}
-
-        {(!hasSnapshots || showFresh) && (
-          <div
-            onDragOver={e => { e.preventDefault(); setHover(true) }}
-            onDragLeave={() => setHover(false)}
-            onDrop={e => { e.preventDefault(); setHover(false); start() }}
-            onClick={start}
-            className={`border-2 border-dashed rounded-2xl p-16 cursor-pointer transition-all ${
-              hover ? "border-primary bg-primary/5" : "border-border hover:border-foreground/25 hover:bg-card"
-            } ${starting ? "pointer-events-none opacity-70" : ""}`}
-          >
-            {starting ? (
-              <>
-                <Loader2 size={28} className="mx-auto text-muted-foreground mb-3 animate-spin" />
-                <p className="text-sm text-muted-foreground">Starting the cleaning agent…</p>
-              </>
-            ) : (
-              <>
-                <Upload size={28} className="mx-auto text-muted-foreground mb-3" />
-                <p className="text-sm text-muted-foreground">Click to start cleaning</p>
-              </>
-            )}
           </div>
         )}
 

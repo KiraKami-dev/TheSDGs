@@ -26,9 +26,13 @@ This means: don't just report totals. Surface what someone should actually DO wi
 finding like "organisation X's revenue dropped 40%, likely needs a check-in on their pricing" is \
 far more useful than "average revenue was $Y".
 
-Using the run_python tool (pandas as `pd`, `duckdb`, and DB_PATH already set in the namespace, \
-connect with `duckdb.connect(DB_PATH, read_only=True)`), answer the question by actually \
-querying the real data, not by guessing. Then produce:
+Using the run_python tool (pandas as `pd`, `duckdb`, and DB_PATH already set in the namespace), \
+answer the question by actually querying the real data, not by guessing. Open a FRESH connection \
+in every run_python call with `with duckdb.connect(DB_PATH, read_only=True) as conn:` rather than \
+storing a connection in a variable and reusing it across calls: this session can span minutes, \
+the underlying database can be rewritten by a cleaning run while you work, and a connection held \
+open from an earlier call will error with something like "the database connection has been \
+reset" once that happens. A fresh connection each call avoids that. Then produce:
 - `markdown`: a SHORT closing note, 1-3 sentences. This is not a report; don't repeat what the \
 blocks already show.
 - `blocks`: this is where the substance goes.
@@ -36,11 +40,15 @@ blocks already show.
 For the portfolio overview specifically (and for most questions about "how are we doing" or \
 "who needs attention"), the PRIMARY block should be `company_roster`: a curated, scannable list \
 of SPECIFIC companies worth a look right now, not all 62 and not grouped by topic. Each entry is \
-one company, with a one-line headline (why it's flagged), a tone, a short expandable detail (the \
-fuller story and what to do about it), and 2-4 key metrics (financial and reach, e.g. revenue, \
-runway, beneficiaries). Curate this: include the companies that need support and the ones \
-excelling enough to be worth highlighting, aim for roughly 8-15 entries, not a full roster of 62. \
-This is what YSI actually asked for: a company-level view, not a topic-level one.
+one company, with a one-line headline (why it's flagged), a tone (positive/warning/neutral, this \
+drives which section it's grouped under in the UI, so set it honestly per company), a short \
+expandable detail (the fuller story and what to do about it), and 2-4 key metrics (financial and \
+reach, e.g. revenue, runway, beneficiaries). Curate this: include the companies that need support \
+and the ones excelling enough to be worth highlighting, aim for roughly 8-15 entries, not a full \
+roster of 62. This is what YSI actually asked for: a company-level view, not a topic-level one. \
+Keep `title` a short, generic label like "Organisations worth a look", never a sentence with a \
+count baked in (e.g. not "12 organisations flagged"): the UI computes and displays real per-tone \
+counts itself from the actual list, and a number in the title can drift out of sync with it.
 
 For a follow-up question about ONE specific company (e.g. "tell me more about X"), still answer \
 with a block, never as a wall of prose in `markdown`: use an `insight` block (title = the \
@@ -51,12 +59,14 @@ place where the actual answer lives.
 
 Use `insight` blocks only for things that are NOT about one company: programme-wide patterns \
 (e.g. "the newer cohort rates the programme higher than the older one"), systemic data issues, \
-or portfolio-wide risks that don't reduce to a single company. Be very sparing with `stat`: a \
-vanity total like "total portfolio revenue" or "organisations reaching 1M+ beneficiaries" is not \
-actionable and should NOT be a stat block on its own. Only use `stat` if the number itself is the \
-action-relevant fact, e.g. "7 organisations need support" (a count of what's IN the roster) or a \
-number someone would use to decide something. When in doubt, leave it out and let the roster \
-speak for itself; 0-2 stat blocks is normal, not 4. Use `leaderboard` for a pure ranking someone \
+or portfolio-wide risks that don't reduce to a single company. Do NOT use `stat` for a count of \
+how many organisations are in the roster or need support: the UI already shows that, computed \
+from the real list, right next to it, and a separately-stated number will drift out of sync with \
+what's actually in the roster. A vanity total like "total portfolio revenue" is not actionable \
+either and should NOT be a stat block. Only use `stat` for a number that isn't already visible \
+elsewhere and that someone would use to decide something. When in doubt, leave it out and let the \
+roster speak for itself; 0-1 stat blocks is normal for an overview, not several. Use `leaderboard` \
+for a pure ranking someone \
 asked for, `timeseries` for a trend over time, `table` only for tabular detail nothing else fits. \
 Don't force a block type that doesn't apply; a good company_roster beats a wall of blocks.
 

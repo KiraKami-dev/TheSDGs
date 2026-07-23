@@ -28,6 +28,7 @@ from pydantic_ai.usage import UsageLimits
 from ysi import config
 from ysi.agents.analyze_agent import make_analyze_agent
 from ysi.agents.clean_agent import make_clean_agent
+from ysi.agents.portrait_agent import make_portrait_agent
 from ysi.persistence import list_snapshots, load_snapshot, save_snapshot
 from ysi.sandbox import Sandbox
 from ysi.schemas import AnalysisResult, CleaningResult
@@ -107,6 +108,7 @@ class AgentSession:
 
 CLEAN_SESSIONS: dict[str, AgentSession] = {}
 ANALYZE_SESSIONS: dict[str, AgentSession] = {}
+PORTRAIT_SESSIONS: dict[str, AgentSession] = {}
 
 # pydantic-ai defaults every agent.run() call to a 50-request cap. Cleaning
 # 19 messy real files legitimately takes more tool calls than that; without
@@ -341,4 +343,45 @@ async def analyze_cancel(session_id: str):
     if not session:
         raise HTTPException(404, "session not found")
     await _cancel_session(session)
+    return session.to_status_dict()
+
+
+class PortraitRequest(BaseModel):
+    org_name: str
+    force: bool = False
+
+
+# A portrait takes a real agent run to build (querying + reasoning over the
+# real data, not instant). Once built for an org, keep serving that same
+# session on request instead of re-running, until force=True asks for fresh.
+PORTRAIT_CACHE: dict[str, str] = {}  # normalized org name -> session_id
+
+
+@app.post("/api/portrait/start")
+async def portrait_start(req: PortraitRequest):
+    """Builds one organisation's impact portrait (ladder, five dimensions,
+    verdict, health, voice) live from the cleaned data. Each request is a
+    fresh one-shot run, not a chat: there's nothing to steer, just a company
+    to look at."""
+    key = req.org_name.strip().lower()
+    if not req.force:
+        cached_id = PORTRAIT_CACHE.get(key)
+        cached = PORTRAIT_SESSIONS.get(cached_id) if cached_id else None
+        if cached and cached.status in ("done", "running"):
+            return {"session_id": cached_id, **cached.to_status_dict()}
+
+    session_id = str(uuid.uuid4())[:8]
+    sandbox = Sandbox(data_dir=config.DATA_DIR, db_path=config.DB_PATH)
+    session = AgentSession(sandbox, make_portrait_agent())
+    PORTRAIT_SESSIONS[session_id] = session
+    PORTRAIT_CACHE[key] = session_id
+    _start_run(session, f"Build the impact portrait for: {req.org_name}")
+    return {"session_id": session_id, **session.to_status_dict()}
+
+
+@app.get("/api/portrait/{session_id}/status")
+async def portrait_status(session_id: str):
+    session = PORTRAIT_SESSIONS.get(session_id)
+    if not session:
+        raise HTTPException(404, "session not found")
     return session.to_status_dict()
