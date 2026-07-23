@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Loader2, RotateCw } from "lucide-react"
-import { api, type AnalysisResult, type CompanyStatusItem } from "../../../lib/api"
+import {
+  api,
+  type AnalysisResult,
+  type CompanyRosterBlock,
+  type CompanyStatusItem,
+  type InsightBlock,
+  type StatBlock,
+  type StatusTurn,
+} from "../../../lib/api"
 import { ChatPanel, type ChatPanelHandle } from "../ChatPanel"
 import { CompanyPanel } from "../CompanyPanel"
 import { renderMarkdown } from "../../../lib/markdown"
@@ -30,8 +38,41 @@ function CompanyCard({ company, onClick }: { company: CompanyStatusItem; onClick
   )
 }
 
+interface Board {
+  roster: CompanyRosterBlock | null
+  stats: StatBlock[]
+  updates: InsightBlock[]
+  markdown: string
+}
+
+// The roster only regenerates on demand, but every follow-up question adds
+// its own turn to the session. Rebuilding from the full turn history (not
+// just the latest turn) keeps the roster on screen instead of a follow-up
+// about one company silently replacing the whole board.
+function buildBoard(turns: StatusTurn<AnalysisResult>[]): Board {
+  let roster: CompanyRosterBlock | null = null
+  let stats: StatBlock[] = []
+  const updates: InsightBlock[] = []
+  let markdown = ""
+
+  for (const turn of turns) {
+    if (!turn.result) continue
+    const rosterBlock = turn.result.blocks.find((b): b is CompanyRosterBlock => b.type === "company_roster")
+    if (rosterBlock) {
+      roster = rosterBlock
+      stats = turn.result.blocks.filter((b): b is StatBlock => b.type === "stat")
+    }
+    for (const b of turn.result.blocks) {
+      if (b.type === "insight") updates.push(b)
+    }
+    if (turn.result.markdown.trim()) markdown = turn.result.markdown
+  }
+
+  return { roster, stats, updates: updates.reverse(), markdown }
+}
+
 export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRestart: () => void }) {
-  const [result, setResult] = useState<AnalysisResult | null>(null)
+  const [board, setBoard] = useState<Board | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [selected, setSelected] = useState<CompanyStatusItem | null>(null)
@@ -42,7 +83,7 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
 
   useEffect(() => {
     setActiveSessionId(sessionId)
-    setResult(null)
+    setBoard(null)
     setLoading(true)
     setError("")
 
@@ -50,7 +91,7 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
       try {
         const s = await api.analyzeStatus(sessionId)
         if (s.status === "done" && s.result) {
-          setResult(s.result)
+          setBoard(buildBoard(s.turns ?? [{ question: null, result: s.result, backend: s.backend }]))
           setLoading(false)
           if (pollRef.current) clearInterval(pollRef.current)
         } else if (s.status !== "running") {
@@ -74,7 +115,7 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
     try {
       const res = await api.overviewRegenerate()
       setActiveSessionId(res.session_id)
-      setResult(null)
+      setBoard(null)
       setLoading(true)
       setError("")
     } finally {
@@ -82,9 +123,12 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
     }
   }
 
-  const roster = result?.blocks.find(b => b.type === "company_roster")
-  const insights = result?.blocks.filter(b => b.type === "insight") ?? []
-  const stats = result?.blocks.filter(b => b.type === "stat") ?? []
+  async function refreshFromSession() {
+    const s = await api.analyzeStatus(activeSessionId)
+    if (s.status === "done" && s.result) {
+      setBoard(buildBoard(s.turns ?? [{ question: null, result: s.result, backend: s.backend }]))
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background px-6 py-16 pb-32">
@@ -117,11 +161,11 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
 
         {error && <p className="text-sm text-primary py-4">{error}</p>}
 
-        {result && (
+        {board && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-            {stats.length > 0 && (
+            {board.stats.length > 0 && (
               <div className="flex flex-wrap gap-3">
-                {stats.map((s, i) => (
+                {board.stats.map((s, i) => (
                   <div key={i} className="bg-background border border-border rounded-lg px-4 py-3">
                     <p className="text-2xl text-foreground" style={{ fontFamily: "'Instrument Serif', serif" }}>{s.value}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
@@ -130,28 +174,33 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
               </div>
             )}
 
-            {roster && (
+            {board.roster && (
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">{roster.title}</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">{board.roster.title}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {roster.companies.map(c => (
+                  {board.roster.companies.map(c => (
                     <CompanyCard key={c.name} company={c} onClick={() => setSelected(c)} />
                   ))}
                 </div>
               </div>
             )}
 
-            {insights.length > 0 && (
+            {board.updates.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Programme-wide</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Recent findings</p>
                 <div className="space-y-2.5">
-                  {insights.map((b, i) => (
+                  {board.updates.map((b, i) => (
                     <div
                       key={i}
                       className="rounded-xl p-4"
                       style={{ background: "var(--background)", border: "1px solid var(--border)", borderLeft: `3px solid ${toneColor[b.tone]}` }}
                     >
-                      <p className="text-sm font-medium text-foreground mb-1">{b.title}</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-sm font-medium text-foreground">{b.title}</p>
+                        {b.org_names.length > 0 && (
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{b.org_names.join(", ")}</span>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground leading-relaxed">{b.body}</p>
                     </div>
                   ))}
@@ -159,11 +208,11 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
               </div>
             )}
 
-            {result.markdown.trim() && (
+            {board.markdown.trim() && (
               <p
                 className="text-sm text-muted-foreground italic border-t border-border pt-6"
                 style={{ fontFamily: "'Instrument Serif', serif", fontStyle: "italic", fontSize: "1.05rem" }}
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(result.markdown) }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(board.markdown) }}
               />
             )}
           </motion.div>
@@ -187,7 +236,7 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
         ref={chatRef}
         sessionId={activeSessionId}
         contextLabel="Ask about the portfolio"
-        onNewResult={setResult}
+        onNewResult={refreshFromSession}
       />
     </div>
   )

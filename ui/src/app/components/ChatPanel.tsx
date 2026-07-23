@@ -5,6 +5,27 @@ import { api, type AnalysisResult } from "../../lib/api"
 
 interface ChatMsg { role: "user" | "assistant"; content: string }
 
+function fmtElapsed(s: number): string {
+  const m = Math.floor(s / 60)
+  const sec = Math.floor(s % 60)
+  return m > 0 ? `${m}m ${sec}s` : `${sec}s`
+}
+
+function ProgressBubble({ progress, elapsed }: { progress: string[]; elapsed: number }) {
+  const current = progress.length ? progress[progress.length - 1] : "Getting started…"
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[85%] bg-background border border-border rounded-xl px-3.5 py-2.5">
+        <div className="flex items-center gap-2">
+          <Loader2 size={13} className="text-muted-foreground animate-spin flex-shrink-0" />
+          <p className="text-sm text-foreground leading-snug">{current}</p>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">Working for {fmtElapsed(elapsed)}</p>
+      </div>
+    </div>
+  )
+}
+
 export interface ChatPanelHandle {
   ask: (text: string) => void
   open: () => void
@@ -37,10 +58,12 @@ export const ChatPanel = forwardRef<ChatPanelHandle, {
   const [messages, setMessages] = useState<ChatMsg[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState<string[]>([])
+  const [elapsed, setElapsed] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, [messages, open])
+  useEffect(() => { if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, [messages, open, progress])
   useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 350) }, [open])
 
   async function send(text: string) {
@@ -49,11 +72,17 @@ export const ChatPanel = forwardRef<ChatPanelHandle, {
     setMessages(prev => [...prev, { role: "user", content: clean }])
     setInput("")
     setLoading(true)
+    setProgress([])
+    setElapsed(0)
     try {
       let s = await api.analyzeMessage(sessionId, clean)
+      setProgress(s.progress)
+      setElapsed(s.elapsed_seconds)
       while (s.status === "running") {
         await new Promise(r => setTimeout(r, 1200))
         s = await api.analyzeStatus(sessionId)
+        setProgress(s.progress)
+        setElapsed(s.elapsed_seconds)
       }
       if (s.status === "done" && s.result) {
         onNewResult(s.result)
@@ -110,13 +139,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, {
                   </div>
                 </div>
               ))}
-              {loading && (
-                <div className="flex justify-start">
-                  <div className="bg-background border border-border rounded-xl px-3.5 py-2.5">
-                    <Loader2 size={13} className="text-muted-foreground animate-spin" />
-                  </div>
-                </div>
-              )}
+              {loading && <ProgressBubble progress={progress} elapsed={elapsed} />}
             </div>
             <div className="flex items-center gap-2 px-4 py-3 border-t border-border flex-shrink-0">
               <input
