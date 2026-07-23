@@ -1,6 +1,7 @@
 .env
 data/raw
 data/processed/*.duckdb
+data/processed/*.duckdb.wal
 data/processed/snapshots
 !data/processed/.gitkeep
 .venv

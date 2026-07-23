@@ -23,6 +23,7 @@ from typing import Callable
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from pydantic_ai.usage import UsageLimits
 
 from ysi import config
 from ysi.agents.analyze_agent import make_analyze_agent
@@ -107,6 +108,12 @@ class AgentSession:
 CLEAN_SESSIONS: dict[str, AgentSession] = {}
 ANALYZE_SESSIONS: dict[str, AgentSession] = {}
 
+# pydantic-ai defaults every agent.run() call to a 50-request cap. Cleaning
+# 19 messy real files legitimately takes more tool calls than that; without
+# raising this, a thorough run fails partway through with UsageLimitExceeded
+# rather than because anything actually went wrong.
+AGENT_USAGE_LIMITS = UsageLimits(request_limit=300)
+
 
 def _last_model_name(result) -> str:
     try:
@@ -125,7 +132,10 @@ async def _run_agent(
     session.history_start = len(session.sandbox.history)
     try:
         result = await session.agent.run(
-            message, deps=session.sandbox, message_history=session.message_history
+            message,
+            deps=session.sandbox,
+            message_history=session.message_history,
+            usage_limits=AGENT_USAGE_LIMITS,
         )
         session.message_history = result.all_messages()
         session.result = result.output
