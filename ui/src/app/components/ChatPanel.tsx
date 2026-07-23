@@ -25,7 +25,7 @@ function summarize(result: AnalysisResult): string {
   }
   const markdownBlock = result.blocks.find(b => b.type === "markdown")
   if (markdownBlock) return markdownBlock.content
-  return result.markdown.trim() || "Done — see the board above."
+  return result.markdown.trim() || "Done. See the board above."
 }
 
 export const ChatPanel = forwardRef<ChatPanelHandle, {

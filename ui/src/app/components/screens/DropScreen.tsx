@@ -27,7 +27,7 @@ export function DropScreen({ onStarted }: { onStarted: (cleanSessionId: string) 
           Drop your<br />impact data in.
         </h1>
         <p className="text-muted-foreground text-base mb-12">
-          19 files · 4 cohorts · 2 languages · no join key — that's fine.
+          Messy accelerator survey exports. No join key. That's fine.
         </p>
         <div
           onDragOver={e => { e.preventDefault(); setHover(true) }}
@@ -46,7 +46,7 @@ export function DropScreen({ onStarted }: { onStarted: (cleanSessionId: string) 
           ) : (
             <>
               <Upload size={28} className="mx-auto text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground">Click to clean the Aurelia Propel dataset</p>
+              <p className="text-sm text-muted-foreground">Click to start cleaning</p>
             </>
           )}
         </div>
