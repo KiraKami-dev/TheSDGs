@@ -1,0 +1,8 @@
+.env
+data/raw
+data/processed/*.duckdb
+data/processed/snapshots
+!data/processed/.gitkeep
+.venv
+**/__pycache__
+*.pyc

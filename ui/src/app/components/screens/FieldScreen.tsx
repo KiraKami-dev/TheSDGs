@@ -1,0 +1,194 @@
+import { useEffect, useRef, useState } from "react"
+import { AnimatePresence, motion } from "motion/react"
+import { Loader2, RotateCw } from "lucide-react"
+import { api, type AnalysisResult, type CompanyStatusItem } from "../../../lib/api"
+import { ChatPanel, type ChatPanelHandle } from "../ChatPanel"
+import { CompanyPanel } from "../CompanyPanel"
+import { renderMarkdown } from "../../../lib/markdown"
+
+const toneColor = {
+  positive: "var(--accent)",
+  warning: "var(--primary)",
+  neutral: "var(--muted-foreground)",
+} as const
+
+function CompanyCard({ company, onClick }: { company: CompanyStatusItem; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="bg-card border border-border rounded-xl p-5 text-left hover:border-foreground/25 hover:bg-white transition-all"
+    >
+      <div className="flex items-start gap-2.5 mb-2">
+        <span
+          className="w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0"
+          style={{ background: toneColor[company.tone] }}
+        />
+        <p className="font-medium text-foreground leading-snug">{company.name}</p>
+      </div>
+      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">{company.headline}</p>
+    </button>
+  )
+}
+
+export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRestart: () => void }) {
+  const [result, setResult] = useState<AnalysisResult | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [selected, setSelected] = useState<CompanyStatusItem | null>(null)
+  const [regenerating, setRegenerating] = useState(false)
+  const [activeSessionId, setActiveSessionId] = useState(sessionId)
+  const chatRef = useRef<ChatPanelHandle>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    setActiveSessionId(sessionId)
+    setResult(null)
+    setLoading(true)
+    setError("")
+
+    async function tick() {
+      try {
+        const s = await api.analyzeStatus(sessionId)
+        if (s.status === "done" && s.result) {
+          setResult(s.result)
+          setLoading(false)
+          if (pollRef.current) clearInterval(pollRef.current)
+        } else if (s.status !== "running") {
+          setError(s.error ?? "Something went wrong")
+          setLoading(false)
+          if (pollRef.current) clearInterval(pollRef.current)
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Lost connection to the backend")
+        setLoading(false)
+        if (pollRef.current) clearInterval(pollRef.current)
+      }
+    }
+    tick()
+    pollRef.current = setInterval(tick, 1500)
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [sessionId])
+
+  async function regenerate() {
+    setRegenerating(true)
+    try {
+      const res = await api.overviewRegenerate()
+      setActiveSessionId(res.session_id)
+      setResult(null)
+      setLoading(true)
+      setError("")
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  const roster = result?.blocks.find(b => b.type === "company_roster")
+  const insights = result?.blocks.filter(b => b.type === "insight") ?? []
+  const stats = result?.blocks.filter(b => b.type === "stat") ?? []
+
+  return (
+    <div className="min-h-screen bg-background px-6 py-16 pb-32">
+      <div className="max-w-3xl mx-auto">
+        <div className="flex items-start justify-between mb-2 gap-4">
+          <h1 className="text-5xl text-foreground leading-tight" style={{ fontFamily: "'Instrument Serif', serif" }}>
+            Who needs a look?
+          </h1>
+          <div className="flex items-center gap-2 flex-shrink-0 mt-3">
+            <button
+              onClick={regenerate}
+              disabled={regenerating || loading}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors font-medium disabled:opacity-40"
+            >
+              <RotateCw size={11} className={regenerating ? "animate-spin" : ""} /> Regenerate
+            </button>
+            <button onClick={onRestart} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors">
+              Start over
+            </button>
+          </div>
+        </div>
+        <p className="text-muted-foreground text-base mb-10">Real answers from the cleaned Aurelia Propel data, not a mock.</p>
+
+        {loading && (
+          <div className="flex items-center gap-2 py-8">
+            <Loader2 size={14} className="text-muted-foreground animate-spin" />
+            <p className="text-sm text-muted-foreground">Reading the portfolio…</p>
+          </div>
+        )}
+
+        {error && <p className="text-sm text-primary py-4">{error}</p>}
+
+        {result && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+            {stats.length > 0 && (
+              <div className="flex flex-wrap gap-3">
+                {stats.map((s, i) => (
+                  <div key={i} className="bg-background border border-border rounded-lg px-4 py-3">
+                    <p className="text-2xl text-foreground" style={{ fontFamily: "'Instrument Serif', serif" }}>{s.value}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {roster && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">{roster.title}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {roster.companies.map(c => (
+                    <CompanyCard key={c.name} company={c} onClick={() => setSelected(c)} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {insights.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Programme-wide</p>
+                <div className="space-y-2.5">
+                  {insights.map((b, i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl p-4"
+                      style={{ background: "var(--background)", border: "1px solid var(--border)", borderLeft: `3px solid ${toneColor[b.tone]}` }}
+                    >
+                      <p className="text-sm font-medium text-foreground mb-1">{b.title}</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{b.body}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {result.markdown.trim() && (
+              <p
+                className="text-sm text-muted-foreground italic border-t border-border pt-6"
+                style={{ fontFamily: "'Instrument Serif', serif", fontStyle: "italic", fontSize: "1.05rem" }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(result.markdown) }}
+              />
+            )}
+          </motion.div>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {selected && (
+          <CompanyPanel
+            company={selected}
+            onClose={() => setSelected(null)}
+            onAsk={name => {
+              setSelected(null)
+              chatRef.current?.ask(`Tell me more about ${name}. What's the full story and what should we do?`)
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <ChatPanel
+        ref={chatRef}
+        sessionId={activeSessionId}
+        contextLabel="Ask about the portfolio"
+        onNewResult={setResult}
+      />
+    </div>
+  )
+}
