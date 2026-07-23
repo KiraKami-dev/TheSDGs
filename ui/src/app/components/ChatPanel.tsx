@@ -31,6 +31,12 @@ export interface ChatPanelHandle {
   open: () => void
 }
 
+const SUGGESTIONS = [
+  "Which organisations have deep, well-evidenced impact, not just a big reach number?",
+  "Where does reach look strong but there's no evidence anything changed?",
+  "Which organisations most need support right now, and why?",
+]
+
 function summarize(result: AnalysisResult): string {
   const insights = result.blocks.filter(b => b.type === "insight")
   if (insights.length === 1) {
@@ -140,7 +146,20 @@ export const ChatPanel = forwardRef<ChatPanelHandle, {
             </div>
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
               {messages.length === 0 && (
-                <p className="text-sm text-muted-foreground">Ask anything about the portfolio, real answers from the cleaned data.</p>
+                <div className="flex flex-col gap-2.5">
+                  <p className="text-sm text-muted-foreground">Ask anything about the portfolio, real answers from the cleaned data.</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SUGGESTIONS.map(s => (
+                      <button
+                        key={s}
+                        onClick={() => send(s)}
+                        className="text-xs bg-secondary hover:bg-border text-foreground px-2.5 py-1.5 rounded-full transition-colors text-left"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
               {messages.map((m, i) => (
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>

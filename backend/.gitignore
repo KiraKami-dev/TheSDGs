@@ -3,6 +3,7 @@ data/raw
 data/processed/*.duckdb
 data/processed/*.duckdb.wal
 data/processed/snapshots
+data/processed/backups
 !data/processed/.gitkeep
 .venv
 **/__pycache__

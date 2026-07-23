@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
-import { Loader2, RotateCw } from "lucide-react"
+import { ListChecks, Loader2, RotateCw } from "lucide-react"
 import {
   api,
   type AnalysisResult,
+  type CleaningResult,
   type CompanyRosterBlock,
   type CompanyStatusItem,
   type InsightBlock,
@@ -13,6 +14,7 @@ import {
 import { ChatPanel, type ChatPanelHandle } from "../ChatPanel"
 import { CompanyPanel } from "../CompanyPanel"
 import { PortraitScreen } from "../PortraitScreen"
+import { ReviewScreen } from "../ReviewScreen"
 import { renderMarkdown } from "../../../lib/markdown"
 
 const toneColor = {
@@ -80,6 +82,8 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
   const [portraitFor, setPortraitFor] = useState<string | null>(null)
   const [regenerating, setRegenerating] = useState(false)
   const [activeSessionId, setActiveSessionId] = useState(sessionId)
+  const [reviewResult, setReviewResult] = useState<CleaningResult | null>(null)
+  const [reviewLoading, setReviewLoading] = useState(false)
   const chatRef = useRef<ChatPanelHandle>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -125,6 +129,18 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
     }
   }
 
+  async function openReview() {
+    setReviewLoading(true)
+    try {
+      const { snapshots } = await api.cleanSnapshots()
+      if (!snapshots.length) return
+      const latest = await api.cleanLoadSnapshot(snapshots[0].id)
+      if (latest.result) setReviewResult(latest.result)
+    } finally {
+      setReviewLoading(false)
+    }
+  }
+
   async function refreshFromSession() {
     const s = await api.analyzeStatus(activeSessionId)
     if (s.status === "done" && s.result) {
@@ -140,6 +156,13 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
             Who needs a look?
           </h1>
           <div className="flex items-center gap-2 flex-shrink-0 mt-3">
+            <button
+              onClick={openReview}
+              disabled={reviewLoading}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors font-medium disabled:opacity-40"
+            >
+              <ListChecks size={11} /> {reviewLoading ? "Loading…" : "Review clean-up"}
+            </button>
             <button
               onClick={regenerate}
               disabled={regenerating || loading}
@@ -253,6 +276,10 @@ export function FieldScreen({ sessionId, onRestart }: { sessionId: string; onRes
 
       <AnimatePresence>
         {portraitFor && <PortraitScreen orgName={portraitFor} onClose={() => setPortraitFor(null)} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {reviewResult && <ReviewScreen result={reviewResult} onClose={() => setReviewResult(null)} />}
       </AnimatePresence>
 
       <ChatPanel

@@ -16,8 +16,10 @@ prototype, not meant to survive a server restart.
 """
 
 import asyncio
+import shutil
 import time
 import uuid
+from pathlib import Path
 from typing import Callable
 
 from fastapi import FastAPI, HTTPException
@@ -32,6 +34,15 @@ from ysi.agents.portrait_agent import make_portrait_agent
 from ysi.persistence import list_snapshots, load_snapshot, save_snapshot
 from ysi.sandbox import Sandbox
 from ysi.schemas import AnalysisResult, CleaningResult
+
+# Every clean run rewrites the live DuckDB file in place, and the agent's
+# extraction isn't deterministic, so a second run can silently produce a
+# different database (different org count, different metric naming) under
+# whatever snapshot/roster a demo was already relying on. Back up the DB
+# alongside each successful clean snapshot, and restore it when that
+# snapshot is loaded, so "load a past run" actually means the data behind
+# it too, not just the agent's saved text output.
+DB_BACKUP_DIR = Path("data/processed/backups")
 
 app = FastAPI(title="YSI Impact Intelligence API")
 
@@ -183,8 +194,23 @@ def _save_analyze_snapshot(session: AgentSession) -> None:
     )
 
 
+def _backup_db(snapshot_id: str) -> None:
+    db_path = Path(config.DB_PATH)
+    if not db_path.exists():
+        return
+    DB_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(db_path, DB_BACKUP_DIR / f"{snapshot_id}.duckdb")
+
+
+def _restore_db(snapshot_id: str) -> None:
+    backup_path = DB_BACKUP_DIR / f"{snapshot_id}.duckdb"
+    if backup_path.exists():
+        shutil.copy2(backup_path, config.DB_PATH)
+
+
 def _on_clean_success(session: AgentSession) -> None:
-    save_snapshot("clean", session.result, session.message_history, session.backend)
+    snapshot_id = save_snapshot("clean", session.result, session.message_history, session.backend)
+    _backup_db(snapshot_id)
 
     overview_id = str(uuid.uuid4())[:8]
     overview_sandbox = Sandbox(data_dir=config.DATA_DIR, db_path=config.DB_PATH)
@@ -224,6 +250,8 @@ async def clean_load_snapshot(snapshot_id: str):
     snapshot = load_snapshot("clean", snapshot_id, CleaningResult)
     if not snapshot:
         raise HTTPException(404, "snapshot not found")
+
+    _restore_db(snapshot_id)
 
     session_id = str(uuid.uuid4())[:8]
     sandbox = Sandbox(data_dir=config.DATA_DIR, db_path=config.DB_PATH)
