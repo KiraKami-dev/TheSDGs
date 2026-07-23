@@ -119,11 +119,23 @@ export interface AgentStatus<T> {
   turns: StatusTurn<T>[] | null;
 }
 
+export interface SnapshotInfo {
+  id: string;
+  created_at: number;
+  summary: string;
+}
+
 export const api = {
   cleanStart: () =>
     postJSON<{ session_id: string } & AgentStatus<CleaningResult>>("/clean/start", {}),
   cleanStatus: (sessionId: string) =>
     getJSON<AgentStatus<CleaningResult>>(`/clean/${sessionId}/status`),
+  cleanSnapshots: () => getJSON<{ snapshots: SnapshotInfo[] }>("/clean/snapshots"),
+  cleanLoadSnapshot: (snapshotId: string) =>
+    postJSON<{ session_id: string } & AgentStatus<CleaningResult>>(
+      `/clean/snapshots/${snapshotId}/load`,
+      {}
+    ),
   analyzeStatus: (sessionId: string) =>
     getJSON<AgentStatus<AnalysisResult>>(`/analyze/${sessionId}/status`),
   analyzeMessage: (sessionId: string, message: string) =>

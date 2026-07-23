@@ -21,7 +21,10 @@ export default function App() {
     <AnimatePresence mode="wait">
       {screen === "drop" && (
         <motion.div key="drop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-          <DropScreen onStarted={id => { setCleanSessionId(id); setScreen("clean") }} />
+          <DropScreen
+            onStarted={id => { setCleanSessionId(id); setScreen("clean") }}
+            onLoaded={id => { setOverviewSessionId(id); setScreen("field") }}
+          />
         </motion.div>
       )}
       {screen === "clean" && cleanSessionId && (
