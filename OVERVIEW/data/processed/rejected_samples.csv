@@ -1,0 +1,27 @@
+clean_flag,metric_name,raw_value,source_file
+currency_in_nonmeasure,runway_months,$2.00,AP4_May_2026_Midline.csv
+currency_in_nonmeasure,runway_months,$2.35,AP4_May_2026_Midline.csv
+currency_in_nonmeasure,fte_count,"$23,445.34",AP3_April_2025_Midline.csv
+currency_in_nonmeasure,fte_count,"$4,449",AP3_April_2025_Midline.csv
+currency_in_nonmeasure,runway_months,$4.00,AP4_May_2026_Midline.csv
+currency_in_nonmeasure,runway_months,$1.45,AP4_May_2026_Midline.csv
+free_text,valuation,Planning to raise Q1 2026. No valuation yet.,AP4_2025_2026_Baseline_Survey.csv
+free_text,valuation,"15 Million USD
+Bottom up approach with leads and pipeline of 4 million usd
+We have 16000",AP4_2025_2026_Baseline_Survey.csv
+free_text,valuation,"We have a commitment of $150,000 and are seeking a matching fund for it. Last valuation was $5m",AP4_2025_2026_Baseline_Survey.csv
+free_text,valuation,4.5M USD valuation conducted internally using an Excel-based financial and growth projection model plus current business,AP4_2025_2026_Baseline_Survey.csv
+free_text,health_hygiene_informed,"Over 400 facilities and our social media reach, we count our impact by the facilities and our sociial media engagements.",AP4_May_2026_Midline.csv
+free_text,valuation,BRL 100 million (considering the discounted cash flow method),AP4_2025_2026_Baseline_Survey.csv
+out_of_range,runway_months,13662,AP4_2025_2026_Baseline_Survey.csv
+out_of_range,runway_months,15000.0,AP1and2_April_25.csv
+out_of_range,runway_months,800.0,AP1and2_April_25.csv
+out_of_range,runway_months,4170.0,AP1and2_April_25.csv
+out_of_range,runway_months,1200,IMM_Assessment_October_2025.csv
+out_of_range,fte_count,10000,AP3_April_2025_Midline.csv
+unparseable,livelihoods_improved,TBC,AP1_April_23_Org_Performance_SA.csv
+unparseable,wash_access_improved,TBC,AP1_April_23_Org_Performance_SA.csv
+unparseable,wash_access_improved,TBC,AP1_April_23_Org_Performance_SA.csv
+unparseable,pct_women_reached,Pelo menos metade delas,IMM_Assessment_October_2025.csv
+unparseable,livelihoods_improved,TBC,AP1_April_23_Org_Performance_SA.csv
+unparseable,runway_months,We are profitable,IMM_Assessment_October_2025.csv
